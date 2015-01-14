@@ -139,6 +139,10 @@ namespace tcp_proxy
                   boost::bind(&bridge::handle_upstream_write,
                         shared_from_this(),
                         boost::asio::placeholders::error));
+
+            std::string str=std::string(reinterpret_cast<char*>(downstream_data_));
+            std::cout << upstream_socket_.local_endpoint().port() << " ==> " << str.substr(0,bytes_transferred) << std::endl;
+            std::cout.flush();
          }
          else
             close();
@@ -169,6 +173,10 @@ namespace tcp_proxy
                  boost::bind(&bridge::handle_downstream_write,
                       shared_from_this(),
                       boost::asio::placeholders::error));
+
+            std::string str=std::string(reinterpret_cast<char*>(upstream_data_));
+            std::cout << upstream_socket_.local_endpoint().port() << " <== " << str.substr(0,bytes_transferred) << std::endl;
+            std::cout.flush();
          }
          else
             close();
