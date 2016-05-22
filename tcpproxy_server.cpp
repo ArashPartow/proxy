@@ -177,10 +177,16 @@ namespace tcp_proxy
       void close()
       {
          boost::mutex::scoped_lock lock(mutex_);
+
          if (downstream_socket_.is_open())
+         {
             downstream_socket_.close();
+         }
+
          if (upstream_socket_.is_open())
+         {
             upstream_socket_.close();
+         }
       }
 
       socket_type downstream_socket_;
@@ -213,6 +219,7 @@ namespace tcp_proxy
             try
             {
                session_ = boost::shared_ptr<bridge>(new bridge(io_service_));
+
                acceptor_.async_accept(session_->downstream_socket(),
                     boost::bind(&acceptor::handle_accept,
                          this,
@@ -223,6 +230,7 @@ namespace tcp_proxy
                std::cerr << "acceptor exception: " << e.what() << std::endl;
                return false;
             }
+
             return true;
          }
 
@@ -233,6 +241,7 @@ namespace tcp_proxy
             if (!error)
             {
                session_->start(upstream_host_,upstream_port_);
+
                if (!accept_connections())
                {
                   std::cerr << "Failure during call to accept." << std::endl;
@@ -275,7 +284,9 @@ int main(int argc, char* argv[])
       tcp_proxy::bridge::acceptor acceptor(ios,
                                            local_host, local_port,
                                            forward_host, forward_port);
+
       acceptor.accept_connections();
+
       ios.run();
    }
    catch(std::exception& e)
