@@ -10,21 +10,26 @@
 //
 // Description
 // ~~~~~~~~~~~
-// The objective of the TCP proxy server is to act as an intermediary
-// in order to 'forward' TCP based connections from external clients
-// onto a singular remote server.
-// The communication flow in the direction from the client to the proxy
-// to the server is called the upstream flow, and the communication flow
-// in the direction from the server to the proxy to the client is called
-// the downstream flow. Furthermore the up and down stream connections
-// are consolidated into a single concept known as a bridge.
-// In the event either the downstream or upstream end points disconnect,
-// the proxy server will proceed to disconnect the other end point
-// and eventually destroy the associated bridge.
+// The  objective of  the TCP  proxy server  is to  act  as  an
+// intermediary  in order  to 'forward'  TCP based  connections
+// from external clients onto a singular remote server.
+//
+// The communication flow in  the direction from the  client to
+// the proxy to the server is called the upstream flow, and the
+// communication flow in the  direction from the server  to the
+// proxy  to  the  client   is  called  the  downstream   flow.
+// Furthermore  the   up  and   down  stream   connections  are
+// consolidated into a single concept known as a bridge.
+//
+// In the event  either the downstream  or upstream end  points
+// disconnect, the proxy server will proceed to disconnect  the
+// other  end  point  and  eventually  destroy  the  associated
+// bridge.
 //
 // The following is a flow and structural diagram depicting the
-// various elements (proxy, server and client) and how they connect
-// and interact with each other.
+// various elements  (proxy, server  and client)  and how  they
+// connect and interact with each other.
+
 //
 //                                    ---> upstream --->           +---------------+
 //                                                     +---->------>               |
@@ -66,21 +71,24 @@ namespace tcp_proxy
 
       bridge(boost::asio::io_service& ios)
       : downstream_socket_(ios),
-        upstream_socket_(ios)
+        upstream_socket_  (ios)
       {}
 
       socket_type& downstream_socket()
       {
+         // Client socket
          return downstream_socket_;
       }
 
       socket_type& upstream_socket()
       {
+         // Remote server socket
          return upstream_socket_;
       }
 
       void start(const std::string& upstream_host, unsigned short upstream_port)
       {
+         // Attempt connection to remote server (upstream side)
          upstream_socket_.async_connect(
               ip::tcp::endpoint(
                    boost::asio::ip::address::from_string(upstream_host),
@@ -94,6 +102,7 @@ namespace tcp_proxy
       {
          if (!error)
          {
+            // Setup async read from remote server (upstream)
             upstream_socket_.async_read_some(
                  boost::asio::buffer(upstream_data_,max_data_length),
                  boost::bind(&bridge::handle_upstream_read,
@@ -101,6 +110,7 @@ namespace tcp_proxy
                       boost::asio::placeholders::error,
                       boost::asio::placeholders::bytes_transferred));
 
+            // Setup async read from client (downstream)
             downstream_socket_.async_read_some(
                  boost::asio::buffer(downstream_data_,max_data_length),
                  boost::bind(&bridge::handle_downstream_read,
@@ -114,6 +124,28 @@ namespace tcp_proxy
 
    private:
 
+      /*
+         Section A: Remote Server --> Proxy --> Client
+         Process data recieved from remote sever then send to client.
+      */
+
+      // Read from remote server complete, now send data to client
+      void handle_upstream_read(const boost::system::error_code& error,
+                                const size_t& bytes_transferred)
+      {
+         if (!error)
+         {
+            async_write(downstream_socket_,
+                 boost::asio::buffer(upstream_data_,bytes_transferred),
+                 boost::bind(&bridge::handle_downstream_write,
+                      shared_from_this(),
+                      boost::asio::placeholders::error));
+         }
+         else
+            close();
+      }
+
+      // Write to client complete, Async read from remote server
       void handle_downstream_write(const boost::system::error_code& error)
       {
          if (!error)
@@ -128,7 +160,15 @@ namespace tcp_proxy
          else
             close();
       }
+      // *** End Of Section A ***
 
+
+      /*
+         Section B: Client --> Proxy --> Remove Server
+         Process data recieved from client then write to remove server.
+      */
+
+      // Read from client complete, now send data to remote server
       void handle_downstream_read(const boost::system::error_code& error,
                                   const size_t& bytes_transferred)
       {
@@ -144,6 +184,7 @@ namespace tcp_proxy
             close();
       }
 
+      // Write to remote server complete, Async read from client
       void handle_upstream_write(const boost::system::error_code& error)
       {
          if (!error)
@@ -158,21 +199,7 @@ namespace tcp_proxy
          else
             close();
       }
-
-      void handle_upstream_read(const boost::system::error_code& error,
-                                const size_t& bytes_transferred)
-      {
-         if (!error)
-         {
-            async_write(downstream_socket_,
-                 boost::asio::buffer(upstream_data_,bytes_transferred),
-                 boost::bind(&bridge::handle_downstream_write,
-                      shared_from_this(),
-                      boost::asio::placeholders::error));
-         }
-         else
-            close();
-      }
+      // *** End Of Section B ***
 
       void close()
       {
@@ -194,7 +221,7 @@ namespace tcp_proxy
 
       enum { max_data_length = 8192 }; //8KB
       unsigned char downstream_data_[max_data_length];
-      unsigned char upstream_data_[max_data_length];
+      unsigned char upstream_data_  [max_data_length];
 
       boost::mutex mutex_;
 
